@@ -1,0 +1,8 @@
+pandas
+fastapi 
+uvicorn 
+psycopg2-binary
+streamlit
+requests
+
+#pip install -r requirements.txt
