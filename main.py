@@ -1,7 +1,9 @@
 from fastapi import FastAPI, Request, HTTPException, Query
 from database import get_connection
+from pydantic import BaseModel, EmailStr, field_validator
 from psycopg2.extras import RealDictCursor
 from datetime import date
+from schemas import Patient, Appointment, Treatment, Billing
 
 app = FastAPI(title="Hospital Management API")
 
@@ -11,17 +13,7 @@ def home():
 
 #add new patient
 @app.post("/patients")
-def create_patient(
-    first_name: str,
-    last_name: str,
-    gender: str,
-    date_of_birth: str,
-    contact_number: str = None,
-    address: str = None,
-    insurance_provider: str = None,
-    insurance_number: str = None,
-    email: str = None
-):
+def create_patient( patient: Patient):
     conn = None
     try:
         conn = get_connection()
@@ -50,27 +42,29 @@ def create_patient(
                 date_of_birth,
                 contact_number,
                 address,
+                registration_date,
                 insurance_provider,
                 insurance_number,
                 email
             )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             RETURNING *;
         """
         cur.execute(query, (
             patient_id,
-            first_name,
-            last_name,
-            gender,
-            date_of_birth,
-            contact_number,
-            address,
-            insurance_provider,
-            insurance_number,
-            email
+            patient.first_name,
+            patient.last_name,
+            patient.gender,
+            patient.date_of_birth,
+            patient.contact_number,
+            patient.address,
+            patient.registration_date,
+            patient.insurance_provider,
+            patient.insurance_number,
+            patient.email
         ))
-        conn.commit()
         new_patient = cur.fetchone()
+        conn.commit()
         cur.close()
         conn.close()
         return {
@@ -120,22 +114,22 @@ def search_patient(
         cur.close()
         conn.close()    
         
-#get all patients   
-@app.get("/patients/show all records")
-def get_patients():
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    try:   
-        cur.execute("SELECT * FROM patients;")
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
-        return {"data":rows}
-    except Exception as e:
-        return {"error": str(e)}
-    finally:
-        cur.close()
-        conn.close()
+# #get all patients   
+# @app.get("/patients/show all records")
+# def get_patients():
+#     conn = get_connection()
+#     cur = conn.cursor(cursor_factory=RealDictCursor)
+#     try:   
+#         cur.execute("SELECT * FROM patients;")
+#         rows = cur.fetchall()
+#         cur.close()
+#         conn.close()
+#         return {"data":rows}
+#     except Exception as e:
+#         return {"error": str(e)}
+#     finally:
+#         cur.close()
+#         conn.close()
 
 #update
 @app.put("/patients")
@@ -291,6 +285,7 @@ def update_doctor(doctor_id: str, first_name: str = None, last_name: str=None, s
         params = []
         if first_name:
             updates.append("first_name = %s")
+            params.append(first_name)
         if last_name:
             updates.append("last_name = %s")
             params.append(last_name)
@@ -336,13 +331,7 @@ def update_doctor(doctor_id: str, first_name: str = None, last_name: str=None, s
 
 #add new appointment
 @app.post("/appointments")
-def create_appointment(
-    patient_id: str,
-    doctor_id: str,
-    appointment_date: str,
-    appointment_time: str,
-    reason_for_visit: str
-):
+def create_appointment(appointment: Appointment):
     conn = None
     try:
         conn = get_connection()
@@ -350,14 +339,14 @@ def create_appointment(
         # if patient exists
         cur.execute(
             "SELECT 1 FROM patients WHERE LOWER(patient_id)=LOWER(%s);",
-            (patient_id,)
+            (appointment.patient_id,)
         )
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Patient not found")
         # if doctor exists
         cur.execute(
             "SELECT 1 FROM doctors WHERE LOWER(doctor_id)=LOWER(%s);",
-            (doctor_id,)
+            (appointment.doctor_id,)
         )
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Doctor not found")
@@ -369,7 +358,7 @@ def create_appointment(
               AND appointment_date = %s
               AND appointment_time = %s
               AND status = 'scheduled';
-            """, (doctor_id, appointment_date, appointment_time))
+            """, (appointment.doctor_id, appointment.appointment_date, appointment.appointment_time))
         if cur.fetchone():
             raise HTTPException(
                 status_code=409,
@@ -405,11 +394,11 @@ def create_appointment(
         """
         cur.execute(query, (
             appointment_id,
-            patient_id,
-            doctor_id,
-            appointment_date,
-            appointment_time,
-            reason_for_visit
+            appointment.patient_id,
+            appointment.doctor_id,
+            appointment.appointment_date,
+            appointment.appointment_time,
+            appointment.reason_for_visit
         ))
         conn.commit()
         new_appointment = cur.fetchone()
@@ -432,7 +421,7 @@ def create_appointment(
         raise HTTPException(status_code=500, detail=str(e))
 
 #search apt
-@app.get("/appointments")
+@app.get("/appointments/search")
 def search_appointment(appointment_id:str=None, first_name:str=None):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -464,7 +453,7 @@ def search_appointment(appointment_id:str=None, first_name:str=None):
         conn.close()
 
 #show all records
-@app.get("/appointments")
+@app.get("/appointments/all")
 def get_appointments():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -542,32 +531,22 @@ def update_appointment(
 
 #create treatment
 @app.post("/treatments")
-def create_treatment(
-    appointment_id: str,
-    treatment_type: str,
-    description: str,
-    cost: float,
-    treatment_date: str,
-    payment_method: str = "Pending"
-):
+def create_treatment(treatment: Treatment):
     conn = None
     try:
         conn = get_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        # Validate appointment exists
+        # Validate appointment
         cur.execute("""
             SELECT 
                 a.appointment_id,
                 a.status,
-                p.patient_id,
-                d.doctor_id
+                p.patient_id
             FROM appointments a
             JOIN patients p 
                 ON a.patient_id = p.patient_id
-            JOIN doctors d 
-                ON a.doctor_id = d.doctor_id
             WHERE LOWER(a.appointment_id) = LOWER(%s)
-        """, (appointment_id,))
+        """, (treatment.appointment_id,))
         appointment = cur.fetchone()
         if not appointment:
             raise HTTPException(
@@ -580,6 +559,24 @@ def create_treatment(
                 status_code=400,
                 detail="Cannot create treatment for cancelled appointment"
             )
+        #fetch treatment cost
+        cur.execute("""
+            SELECT cost
+            FROM treatment_catalog
+            WHERE LOWER(treatment_type)=LOWER(%s)
+            AND LOWER(description)=LOWER(%s)
+        """, (
+            treatment.treatment_type,
+            treatment.description
+        ))
+        treatment_data = cur.fetchone()
+
+        if not treatment_data:
+            raise HTTPException(
+                status_code=404,
+                detail="Treatment type/description not found"
+            )
+        cost = treatment_data["cost"]        
         # Generate Treatment ID
         cur.execute("""
             SELECT treatment_id
@@ -608,14 +605,15 @@ def create_treatment(
             RETURNING *
         """, (
             new_treatment_id,
-            appointment_id,
-            treatment_type,
-            description,
+            treatment.appointment_id,
+            treatment.treatment_type,
+            treatment.description,
             cost,
-            treatment_date
+            treatment.treatment_date
         ))
 
-        treatment = cur.fetchone()
+        new_treatment = cur.fetchone()
+        print(new_treatment)
        # Auto-generate Billing
         cur.execute("""
             SELECT bill_id
@@ -645,9 +643,9 @@ def create_treatment(
             new_bill_id,
             appointment["patient_id"],
             new_treatment_id,
-            treatment_date,
+            treatment.treatment_date,
             cost,
-            payment_method,
+            treatment.payment_method,
             "Pending"
         ))
         billing = cur.fetchone()
@@ -656,12 +654,12 @@ def create_treatment(
             UPDATE appointments
             SET status = 'Completed'
             WHERE LOWER(appointment_id) = LOWER(%s)
-        """, (appointment_id,))
+        """, (treatment.appointment_id,))
         # Commit everything
         conn.commit()
         return {
             "message": "Treatment and billing created successfully",
-            "treatment": treatment,
+            "treatment": new_treatment,
             "billing": billing
         }
     except HTTPException as he:
@@ -681,6 +679,23 @@ def create_treatment(
             cur.close()
             conn.close()
 
+#treatment_catalog api
+@app.get("/treatment-options")
+def get_treatment_options():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cur.execute("""
+            SELECT *
+            FROM treatment_catalog
+            ORDER BY treatment_type;
+        """)
+        rows = cur.fetchall()
+        return {"data": rows}
+    finally:
+        cur.close()
+        conn.close()
+
 #show all treatments
 @app.get("/treatments")
 def get_treatments():
@@ -692,8 +707,30 @@ def get_treatments():
     conn.close()
     return {"data": rows}
 
+# #delete treatment
+# @app.delete("/treatments")
+# def delete_treatment(treatment_id: str):
+#     conn = get_connection()
+#     cur = conn.cursor(cursor_factory=RealDictCursor)
+#     try:
+#         cur.execute("""
+#             DELETE FROM treatments
+#             WHERE LOWER(treatment_id) = LOWER(%s)
+#             RETURNING *;
+#         """, (treatment_id,))
+#         deleted = cur.fetchone()
+#         conn.commit()
+#     except Exception as e:
+#         conn.rollback()
+#         raise HTTPException(status_code=500, detail=str(e))
+#     finally:
+#         cur.close()
+#         conn.close()
+#     return {"status": "deleted", "data": deleted}
+    
+
 #show all billings
-@app.get("/billing")
+@app.get("/billing/all")
 def get_billing():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -704,7 +741,7 @@ def get_billing():
     return {"data": rows}
 
 #search a billing
-@app.get("/billing")
+@app.get("/billing/search")
 def search_billing(bill_id: str = None, patient_id: str = None):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -743,13 +780,8 @@ def search_billing(bill_id: str = None, patient_id: str = None):
         conn.close()
 
 #update billing
-@app.put("/billing")
-def update_billing(
-    bill_id: str,
-    amount: float = None,
-    payment_method: str = None,
-    payment_status: str = None
-):
+@app.put("/billing/{bill_id}")
+def update_billing(bill_id: str, billing: Billing):
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     try:    #check bill exists
@@ -765,15 +797,15 @@ def update_billing(
             )
         updates = []
         params = []
-        if amount:
+        if billing.amount:
             updates.append("amount = %s")
-            params.append(amount)
-        if payment_method:
+            params.append(billing.amount)
+        if billing.payment_method:
             updates.append("payment_method = %s")
-            params.append(payment_method)
-        if payment_status:
+            params.append(billing.payment_method)
+        if billing.payment_status:
             updates.append("payment_status = %s")
-            params.append(payment_status)
+            params.append(billing.payment_status)
         if not updates:
             raise HTTPException(
                 status_code=400,
@@ -923,46 +955,46 @@ def patient_history(patient_id: str):
         if conn:
             conn.close()
 
-#Doctor's workload
-@app.get("/doctors/workload")
-def doctor_workload(doctor_id=str):
-    conn = 0
-    try:
-        conn = get_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        query = """
-        SELECT 
-            d.doctor_id,
-            d.first_name,
-            COUNT(a.appointment_id) AS total_appointments
-        FROM doctors d
-        LEFT JOIN appointments a ON d.doctor_id = a.doctor_id
-        GROUP BY d.doctor_id, d.first_name
-        ORDER BY total_appointments DESC;
-        """
-        cur.execute(query, (doctor_id,))
-        rows = cur.fetchall()
-        print(rows)        
-        cur.close()
-        conn.close()
-        if not rows:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No doctor found with ID:{doctor_id}"
-            )
-        return{
-            "doctor_id":doctor_id,
-            "record_count":len(rows),
-            "data": rows
-        }
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        if conn:
-            conn.close()
-        raise HTTPException(
-            status_code=500,
-            detail=f"Server error: {str(e)}"
-        )
+# #Doctor's workload
+# @app.get("/doctors/workload")
+# def doctor_workload(doctor_id=str, first_name=str):
+#     conn = 0
+#     try:
+#         conn = get_connection()
+#         cur = conn.cursor(cursor_factory=RealDictCursor)
+#         query = """
+#         SELECT 
+#             d.doctor_id,
+#             d.first_name,
+#             COUNT(a.appointment_id) AS total_appointments
+#         FROM doctors d
+#         LEFT JOIN appointments a ON d.doctor_id = a.doctor_id
+#         GROUP BY d.doctor_id, d.first_name
+#         ORDER BY total_appointments DESC;
+#         """
+#         cur.execute(query, (doctor_id,))
+#         rows = cur.fetchall()
+#         print(rows)        
+#         cur.close()
+#         conn.close()
+#         if not rows:
+#             raise HTTPException(
+#                 status_code=404,
+#                 detail=f"No doctor found with ID:{doctor_id}"
+#             )
+#         return{
+#             "doctor_id":doctor_id,
+#             "record_count":len(rows),
+#             "data": rows
+#         }
+#     except HTTPException as he:
+#         raise he
+#     except Exception as e:
+#         if conn:
+#             conn.close()
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"Server error: {str(e)}"
+#         )
 
 #uvicorn main:app --reload

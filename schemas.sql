@@ -59,3 +59,14 @@ CREATE TABLE IF NOT EXISTS billing (
     FOREIGN KEY (patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE,
     FOREIGN KEY (treatment_id) REFERENCES treatments(treatment_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS treatment_catalog (
+    catalog_id SERIAL PRIMARY KEY,
+    treatment_type VARCHAR(100),
+    description VARCHAR(100),
+    cost NUMERIC(10,2)
+
+    FOREIGN KEY (treatment_type) REFERENCES treatments(treatment_type) ON DELETE CASCADE
+    FOREIGN KEY (description) REFERENCES treatments(description) ON DELETE CASCADE
+    FOREIGN KEY (cost) REFERENCES treatments(cost) ON DELETE CASCADE
+);
