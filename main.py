@@ -4,8 +4,32 @@ from pydantic import BaseModel, EmailStr, field_validator
 from psycopg2.extras import RealDictCursor
 from datetime import date
 from schemas import Patient, Appointment, Treatment, Billing
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi import Body
 
 app = FastAPI(title="Hospital Management API")
+
+#ERROR HANDLING
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+
+    errors = []
+
+    for err in exc.errors():
+
+        errors.append({
+            "field": err["loc"][-1],
+            "message": err["msg"]
+        })
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "status": "error",
+            "errors": errors
+        }
+    )
 
 @app.get("/")
 def home():
@@ -13,7 +37,7 @@ def home():
 
 #add new patient
 @app.post("/patients")
-def create_patient( patient: Patient):
+def create_patient(patient: Patient):
     conn = None
     try:
         conn = get_connection()
@@ -114,22 +138,22 @@ def search_patient(
         cur.close()
         conn.close()    
         
-# #get all patients   
-# @app.get("/patients/show all records")
-# def get_patients():
-#     conn = get_connection()
-#     cur = conn.cursor(cursor_factory=RealDictCursor)
-#     try:   
-#         cur.execute("SELECT * FROM patients;")
-#         rows = cur.fetchall()
-#         cur.close()
-#         conn.close()
-#         return {"data":rows}
-#     except Exception as e:
-#         return {"error": str(e)}
-#     finally:
-#         cur.close()
-#         conn.close()
+#get all patients   
+@app.get("/patients/show all records")
+def get_patients():
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:   
+        cur.execute("SELECT * FROM patients;")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return {"data":rows}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        cur.close()
+        conn.close()
 
 #update
 @app.put("/patients")
@@ -271,9 +295,9 @@ def get_doctors():
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("SELECT * FROM doctors;")
     rows = cur.fetchall()
+    return {"data": rows}
     cur.close()
     conn.close()
-    return {"data": rows}
 
 #update doctor
 @app.put("/doctors")
@@ -459,9 +483,9 @@ def get_appointments():
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("SELECT * FROM appointments;")
     rows = cur.fetchall()
+    return {"data": rows}
     cur.close()
     conn.close()
-    return {"data": rows}
 
 #update apt
 @app.put("/appointments")
@@ -528,6 +552,27 @@ def update_appointment(
         conn.close()
 
 #delete apt
+@app.delete("/appointments")
+def delete_patient(appointment_id: str):
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cur.execute("""
+            DELETE FROM appointments
+            WHERE LOWER(appointment_id) = LOWER(%s)
+            RETURNING *;
+        """, (appointment_id,))
+        deleted = cur.fetchone()
+        conn.commit()
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        return {"status": "deleted", "data": deleted}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()    
 
 #create treatment
 @app.post("/treatments")
@@ -697,15 +742,15 @@ def get_treatment_options():
         conn.close()
 
 #show all treatments
-@app.get("/treatments")
+@app.get("/treatments/all")
 def get_treatments():
     conn = get_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("SELECT * FROM treatments;")
     rows = cur.fetchall()
+    return {"data": rows}
     cur.close()
     conn.close()
-    return {"data": rows}
 
 # #delete treatment
 # @app.delete("/treatments")
@@ -736,9 +781,9 @@ def get_billing():
     cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("SELECT * FROM billing;")
     rows = cur.fetchall()
+    return {"data": rows}
     cur.close()
     conn.close()
-    return {"data": rows}
 
 #search a billing
 @app.get("/billing/search")
@@ -955,46 +1000,92 @@ def patient_history(patient_id: str):
         if conn:
             conn.close()
 
-# #Doctor's workload
-# @app.get("/doctors/workload")
-# def doctor_workload(doctor_id=str, first_name=str):
-#     conn = 0
-#     try:
-#         conn = get_connection()
-#         cur = conn.cursor(cursor_factory=RealDictCursor)
-#         query = """
-#         SELECT 
-#             d.doctor_id,
-#             d.first_name,
-#             COUNT(a.appointment_id) AS total_appointments
-#         FROM doctors d
-#         LEFT JOIN appointments a ON d.doctor_id = a.doctor_id
-#         GROUP BY d.doctor_id, d.first_name
-#         ORDER BY total_appointments DESC;
-#         """
-#         cur.execute(query, (doctor_id,))
-#         rows = cur.fetchall()
-#         print(rows)        
-#         cur.close()
-#         conn.close()
-#         if not rows:
-#             raise HTTPException(
-#                 status_code=404,
-#                 detail=f"No doctor found with ID:{doctor_id}"
-#             )
-#         return{
-#             "doctor_id":doctor_id,
-#             "record_count":len(rows),
-#             "data": rows
-#         }
-#     except HTTPException as he:
-#         raise he
-#     except Exception as e:
-#         if conn:
-#             conn.close()
-#         raise HTTPException(
-#             status_code=500,
-#             detail=f"Server error: {str(e)}"
-#         )
+#Doctor Workload
+@app.get("/doctors/workload")
+def doctor_workload():
+
+    conn = None
+
+    try:
+        conn = get_connection()
+
+        cur = conn.cursor(
+            cursor_factory=RealDictCursor
+        )
+
+        query = """
+        SELECT 
+            d.doctor_id,
+            CONCAT(d.first_name, ' ', d.last_name) AS doctor_name,
+            d.specialization,
+            COUNT(a.appointment_id) AS total_appointments
+
+        FROM doctors d
+
+        LEFT JOIN appointments a
+            ON d.doctor_id = a.doctor_id
+
+        GROUP BY d.doctor_id, d.first_name
+
+        ORDER BY total_appointments DESC;
+        """
+
+        cur.execute(query)
+
+        rows = cur.fetchall()
+
+        if not rows:
+            raise HTTPException(
+                status_code=404,
+                detail="No doctor workload data found"
+            )
+
+        return {
+            "record_count": len(rows),
+            "data": rows
+        }
+
+    except HTTPException as he:
+        raise he
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Server error: {str(e)}"
+        )
+
+    finally:
+        if conn:
+            cur.close()
+            conn.close()
+
+@app.post("/chatbot")
+def chatbot(request: ChatRequest):
+    query = request.query.lower()
+    conn = get_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        if "total patients" in query:
+            cur.execute("SELECT COUNT(*) FROM patients;")
+            count = cur.fetchone()[0]
+            result = cur.fetchone()
+            return {
+                "response": f"Total patients: {result['total_patients']}"
+            }
+        elif "pending bills" in query:
+            cur.execute("SELECT COUNT(*) AS total FROM billing WHERE payment_status = 'Pending';")
+            count = cur.fetchone()
+            return {
+                "response": f"Total pending bills: {count['total']}"
+            }
+        elif "busiest doctor" in query:
+            cur.execute("""
+                SELECT d.first_name,
+                COUNT(a.appointment_id)
+                AS total
+
+            return
+
 
 #uvicorn main:app --reload
