@@ -9,69 +9,211 @@ import plotly.express as px
 from datetime import date
 from streamlit_calendar import calendar
 
-
 BASE_URL = "http://127.0.0.1:8000"
+st.set_page_config(
+    page_title="Hospital Management System",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 st.markdown("""
 <style>
-
 .main {
-    background-color: #f5f7fa;
+    background-color: #0F172A;
+    color: #00000
 }
 .block-container {
-    padding-top: 1.8rem;
+    padding-top: 2rem;
     padding-bottom: 2rem;
-}
-[data-testid="metric-container"] {
-    background: white;
-    border-radius: 15px;
-    padding: 18px;
-    box-shadow: 0px 4px 12px rgba(0,0,0,0.08);
-    border-left: 5px solid #4F8BF9;
-}
-.chart-card {
-    background: white;
-    padding: 2px;
-    border-radius: 18px;
-    box-shadow: 0px 4px 14px rgba(0,0,0,0.08);
-    margin-bottom: 20px;
+    padding-left: 2rem;
+    padding-right: 2rem;
 }
 .heading {
-    font-size: 40px;
+    font-size: 42px;
     font-weight: 700;
-    color: #1E293B;
+    color: #F8FAFC;
     text-align: center;
-    margin-bottom: -30px;
+    margin-bottom: 10px;
 }
-.info{
+.sub-header {
+    font-size: 24px;
+    font-weight: 600;
+    color: #E2E8F0;
+    margin-bottom: 15px;
+    text-align: center;
+}
+.info {
     font-size: 18px;
     font-weight: 600;
-    color: #1E293B;
+    color: #F8FAFC;
+    text-align: center;
     margin-bottom: 10px;
 }
-.section-title {
-    font-size: 26px;
-    font-weight: 700;
-    color: #1E293B;
-    margin-bottom: 10px;
-}
-.small-title {
-    font-size: 10px;
-    font-weight: 600;
-}
-</style>
-""", unsafe_allow_html=True)
 
-st.set_page_config(
-    page_title="Hospital Management System",
-    layout="wide"
-)
-st.markdown('<div class="heading">Hospital Management System Dashboard</div>', unsafe_allow_html=True)
-# st.info("Use the sidebar to manage hospital records.")
-st.divider()
+/* =========================
+METRIC CARDS
+========================= */
+
+[data-testid="stMetric"] {
+
+    background: linear-gradient(
+        135deg,
+        #1E293B,
+        #0F172A
+    );
+
+    border: 1px solid #334155;
+
+    padding: 18px;
+
+    border-radius: 16px;
+
+    text-align: center;
+
+    box-shadow:
+        0 4px 12px rgba(0,0,0,0.35);
+
+}
+
+/* Metric label */
+
+[data-testid="stMetricLabel"] {
+    color: #CBD5E1;
+    font-size: 16px;
+    text-align: center;
+}
+
+/* Metric value */
+
+[data-testid="stMetricValue"] {
+    color: #F8FAFC;
+    font-size: 30px;
+    font-weight: 500;
+}
+
+/* =========================
+CHART CONTAINERS
+========================= */
+
+.chart-card {
+
+    background-color: #111827;
+
+    padding: 18px;
+
+    border-radius: 16px;
+
+    border: 1px solid #334155;
+
+    margin-bottom: 20px;
+
+    box-shadow:
+        0 4px 12px rgba(0,0,0,0.25);
+}
+
+/* =========================
+BUTTONS
+========================= */
+
+.stButton > button {
+
+    background-color: #2563EB;
+
+    color: white;
+
+    border-radius: 10px;
+
+    border: none;
+
+    padding: 10px 18px;
+
+    font-weight: 600;
+
+    transition: 0.3s;
+}
+
+.stButton > button:hover {
+
+    background-color: #1D4ED8;
+
+    color: white;
+
+    border: none;
+}
+
+/* =========================
+INPUT FIELDS
+========================= */
+
+.stTextInput input,
+.stNumberInput input,
+.stDateInput input,
+textarea {
+
+    background-color: #1E293B !important;
+
+    color: #F8FAFC !important;
+
+    border-radius: 10px !important;
+
+    border: 1px solid #475569 !important;
+}
+
+/* Selectbox */
+
+.stSelectbox div[data-baseweb="select"] {
+
+    background-color: #1E293B !important;
+
+    border-radius: 10px !important;
+
+    border: 1px solid #475569 !important;
+}
+
+/* =========================
+DATAFRAMES
+========================= */
+
+[data-testid="stDataFrame"] {
+
+    background-color: #111827;
+
+    border-radius: 12px;
+
+    padding: 10px;
+
+    border: 1px solid #334155;
+}
+
+/* =========================
+SUCCESS / ERROR BOXES
+========================= */
+
+.stSuccess {
+    background-color: rgba(34,197,94,0.15);
+}
+
+.stError {
+    background-color: rgba(239,68,68,0.15);
+}
+
+.stWarning {
+    background-color: rgba(245,158,11,0.15);
+}
+.info {
+    background-color: rgba(59,130,246,0.15);
+}
+section[data-testid="stSidebar"] {
+    background-color: #111827;
+    border-right: 1px solid #334155;
+}
+section[data-testid="stSidebar"] * {
+    color: #F8FAFC;
+}
+</style>""", unsafe_allow_html=True)
 
 menu = st.sidebar.radio(
-    "Hospital Modules",
+    "HOSPITAL MODULES",
     [
         "Home",
         "Patients",
@@ -79,38 +221,35 @@ menu = st.sidebar.radio(
         "Appointments",
         "Treatments",
         "Billing",
-        "Analytics"
+        "Patient History",
+        "Doctor Workload",
+        "Appointments Calendar"
     ]
 )
+
+st.sidebar.divider()
+
 #chatbot
-st.sidebar.title("AI Assistant")
+st.sidebar.title("AI Assistant Doctor")
 query = st.sidebar.text_input("Ask me anything")
 if st.sidebar.button("Ask"):
-    payload = {
-        "query": query
-    }
-    response = requests.post(f"{BASE_URL}/chatbot", json=payload)
-    if response.status_code==200:
-        answer = response.json()
-        st.sidebar.write(answer["response"])
+    if not query.strip():
+        st.sidebar.error("Please enter a query")
     else:
-        st.sidebar.error(response.text)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        payload = {
+            "query": query
+        }
+        response = requests.post(f"{BASE_URL}/chatbot", json=payload)
+        if response.status_code==200:
+            answer = response.json()
+            st.sidebar.write(answer["response"])
+        else:
+            st.sidebar.error(response.text)
 
 if menu == "Home":
+    st.markdown('<div class="heading">Hospital Management System Dashboard</div>', unsafe_allow_html=True)
+# st.info("Use the sidebar to manage hospital records.")
+    st.divider()
    
     #Fetch Data From APIs
     patients = requests.get(f"{BASE_URL}/patients/show all records").json()["data"]
@@ -131,7 +270,6 @@ if menu == "Home":
     total_treatments = len(treatments_df)
     total_billing = billing_df["amount"].sum()
 
-    st.markdown('<div class="info">', unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Total Patients", total_patients)
@@ -141,68 +279,127 @@ if menu == "Home":
         st.metric("Total Doctors", total_doctors)
     with col4:
         st.metric("Total Treatments", total_treatments)
-    st.markdown('</div>', unsafe_allow_html=True)
 
     #Add Charts
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
-    st.markdown(
-            '<div class="chart-card">',
-            unsafe_allow_html=True
-        )
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown("<div class='info'>Patients by Gender</div>", unsafe_allow_html=True)
+        st.markdown("<div class='info'>Patient Analytics</div>", unsafe_allow_html=True)
         patients_by_gender = patients_df["gender"].value_counts()
         st.bar_chart(patients_by_gender)
     with col2:
-        st.markdown("<div class='small-title'>Doctors by Specialization</div>", unsafe_allow_html=True)
+        st.markdown("<div class='info'>Doctor Analytics</div>", unsafe_allow_html=True)
         doctors_by_specialization = doctors_df["specialization"].value_counts()
         st.bar_chart(doctors_by_specialization)
+    # with col3:
+    #     st.markdown("<div class='info'>Appointments by Status</div>", unsafe_allow_html=True)
+    #     appointments_by_status = appointments_df["status"].value_counts()
+    #     st.bar_chart(appointments_by_status)
+    # with col1:
+    #     st.markdown("<div class='info'>Treatments by Type</div>", unsafe_allow_html=True)
+    #     treatments_by_type = treatments_df["treatment_type"].value_counts()
+    #     st.bar_chart(treatments_by_type)
     with col3:
-        st.subheader("Appointments by Status")
-        appointments_by_status = appointments_df["status"].value_counts()
-        st.bar_chart(appointments_by_status)
-    with col4:
-        st.subheader("Treatments by Type")
-        treatments_by_type = treatments_df["treatment_type"].value_counts()
-        st.bar_chart(treatments_by_type)
-    with col5:
-        st.subheader("Billing by Payment Method")
+        st.markdown("<div class='info'>Payment Analytics</div>", unsafe_allow_html=True)
         billing_by_payment_method = billing_df["payment_method"].value_counts()
         st.bar_chart(billing_by_payment_method)
-    with col6:
-        st.subheader("Billing by Payment Status")
-        billing_by_payment_status = billing_df["payment_status"].value_counts()
-        st.bar_chart(billing_by_payment_status)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    pending_count = len(billing_df[billing_df["payment_status"] == "Pending"])
-    paid_count = len(
-        billing_df[
-            billing_df["payment_status"] == "Paid"
-        ]
-    )
-    cancelled_count = len(
-        billing_df[
-            billing_df["payment_status"] == "Failed"
-        ]
-    )
-    st.subheader("Payment Status")
+    # with col3:
+    #     st.markdown("<div class='info'>Billing by Payment Status</div>", unsafe_allow_html=True)
+    #     billing_by_payment_status = billing_df["payment_status"].value_counts()
+    #     st.bar_chart(billing_by_payment_status)
+    
     col1, col2, col3 = st.columns(3)
     with col1:
-        payment_fig=px.pie(billing_df, names="payment_status", title="Payment Dsitribution")
-        st.plotly_chart(payment_fig, use_container_width=True)
-    col3.warning(f"Pending Bills: {pending_count}")
-    col3.success(f"Paid Bills: {paid_count}")
-    col3.error(f"Failed Bills: {cancelled_count}")
+        st.markdown("<div class='info'>Appointment Analytics</div>", unsafe_allow_html=True)
+        appointments_fig=px.pie(appointments_df, names="status")
+        appointments_fig.update_layout(height=300, margin=dict(t=10, b=10, l=10, r=10))
+        st.plotly_chart(appointments_fig, use_container_width=True)
+    with col2:
+        st.markdown("<div class='info'>Billing Analytics</div>", unsafe_allow_html=True)   
+        pending_count = len(billing_df[billing_df["payment_status"] == "Pending"])
+        paid_count = len(        billing_df[            billing_df["payment_status"] == "Paid"        ]        )
+        cancelled_count = len(        billing_df[            billing_df["payment_status"] == "Failed"        ]        )   
+        col2.warning(f"Pending Bills: {pending_count}")
+        col2.success(f"Paid Bills: {paid_count}")
+        col2.error(f"Failed Bills: {cancelled_count}")
+    with col3:
+        st.markdown("<div class='info'>Treatment Analytics</div>", unsafe_allow_html=True)
+        treatment_fig=px.pie(treatments_df, names="treatment_type")
+        treatment_fig.update_layout(height=300, margin=dict(t=0, b=10, l=10, r=0))
+        st.plotly_chart(treatment_fig, use_container_width=True)
+
+
+    st.markdown("<div class='info'>Treatment Catalog Analytics</div>", unsafe_allow_html=True)
+
+    # Fetch treatment catalog
+    catalog_response = requests.get(f"{BASE_URL}/treatment-options")
+
+    if catalog_response.status_code == 200:
+
+        catalog_df = pd.DataFrame(
+            catalog_response.json()["data"]
+        )
+        col1,col2 = st.columns(2)
+        with col1:
+            # Treemap Visual
+            treatment_cost_fig = px.treemap(
+                catalog_df,
+                path=["treatment_type", "description"],
+                values="cost",
+                color="cost",
+                hover_data=["cost"],
+                title="Treatment Types, Descriptions & Cost Distribution"
+            )
+
+            st.plotly_chart(
+                treatment_cost_fig,
+                use_container_width=True
+            )
+        with col2:
+            # Bar Chart
+            
+            catalog_df["label"] = (            catalog_df["treatment_type"]
+            + " - "
+            + catalog_df["description"]            )
+            cost_fig = px.bar(
+                catalog_df,
+                x="cost",
+                y="label",
+                orientation="h",
+                color="cost",
+                title="Treatment Cost Breakdown"
+            )
+            cost_fig.update_layout(
+                height=600,
+                yaxis_title="Treatment",
+                xaxis_title="Cost"
+            )
+            st.plotly_chart(cost_fig, use_container_width=True)
+    else:
+        st.error("Could not load treatment catalog")
+
+    # with col3:
+
+    #     doctor_fig = px.bar(
+    #         appointments_df,
+    #         x="doctor_id",
+    #         color="status",
+    #         title="Doctor Appointment Load"
+    #     )
+
+    #     doctor_fig.update_layout(height=300)
+
+    #     st.plotly_chart(
+    #         doctor_fig,
+    #         use_container_width=True
+    #     )
 
     #revenue line chart
-    st.subheader("Revenue Trend")
+    st.markdown("<div class='info'>Revenue Analytics</div>", unsafe_allow_html=True)
     billing_df["bill_date"] = pd.to_datetime(billing_df["bill_date"])
     revenue_by_date = px.bar(
         billing_df,
         x="bill_date",
         y="amount",
-        title="Revenue Over Time",
         labels={
             "bill_date": "Date",
             "amount": "Revenue"
@@ -211,79 +408,8 @@ if menu == "Home":
     st.plotly_chart(revenue_by_date, use_container_width=True)
     st.metric("Total Revenue", total_billing)
 
-    #Treatment analytics
-    st.subheader("Treatment Analytics")
-    treatment_count = (treatments_df["treatment_type"].value_counts().reset_index())
-    treatment_count.columns = ["Treatment Type", "Count"]
-    st.dataframe(treatment_count, use_container_width=True)
-    fig = px.bar(
-        treatment_count,
-        x="Treatment Type",
-        y="Count",
-        title="Top Treatments")
-    st.plotly_chart(fig, use_container_width=True)
-
-    #Appointments
-    calender_events = []
-    for _, row in appointments_df.iterrows():
-        calender_events.append({
-            "title":row["reason_for_visit"],
-            "start":row["appointment_date"],
-            "end":row["appointment_time"]
-        })
-    st.subheader("Appointments Calendar")
-    calendar_options = {"initialView": "dayGridMonth"}
-    calendar(events=calender_events, options=calendar_options)
-
-    appointments_df["appointment_date"] = pd.to_datetime(
-    appointments_df["appointment_date"]
-    )
-    appointments_df["day"] = appointments_df[
-        "appointment_date"
-    ].dt.day_name()
-    heatmap = appointments_df.groupby(
-        ["day", "doctor_id"]
-    ).size().reset_index(name="count")
-    heatmap_fig = px.density_heatmap(
-        heatmap,
-        x="day",
-        y="doctor_id",
-        z="count",
-        title="Appointments Heatmap"
-    )
-    st.plotly_chart(heatmap_fig, use_container_width=True)
-
-
-
-    #Doctor Workload
-    response = requests.get(f"{BASE_URL}/doctors/workload")
-    if response.status_code != 200:
-        st.error(response.text)
-    else:
-        workload = response.json()
-        workload_df = pd.DataFrame(workload["data"])
-        st.subheader("Doctor Workload")
-        st.dataframe(workload_df, use_container_width=True)
-        col1, col2 = st.columns(2)
-        with col1:
-            doctor_fig = px.bar(
-            workload_df,
-            x="doctor_name",
-            y="total_appointments",
-            color="total_appointments",
-            title="Appointments per Doctor"
-            )
-            st.plotly_chart(doctor_fig, use_container_width=True)
-        with col2:
-            pie_fig = px.pie(
-                workload_df,
-                names="doctor_name",
-                values="total_appointments",
-                title="Appointments per Doctor")
-
-            st.plotly_chart(pie_fig, use_container_width=True)
- 
 elif menu == "Patients":
+    st.header("Patient Records")
 
     action = st.selectbox(
         "Patient Actions",
@@ -466,6 +592,7 @@ elif menu == "Doctors":
                 st.error(response.json())        
 
 elif menu == "Appointments":
+    st.header("Appointment Records")
     action = st.selectbox(
         "Appointment Actions",
         [
@@ -569,6 +696,7 @@ elif menu == "Appointments":
                 st.error(response.json())
                 
 elif menu == "Treatments":
+    st.header("Treatment Records")
     action = st.selectbox(
         "Treatment Actions",
         [
@@ -662,6 +790,7 @@ elif menu == "Treatments":
                 st.error(response.json())
 
 elif menu == "Billing":
+    st.header("Billing Records")
     action = st.selectbox(
         "Billing Actions",
         [
@@ -717,7 +846,7 @@ elif menu == "Billing":
             else:
                 st.error(response.json())
 
-elif menu == "Analytics":
+elif menu == "Patient History":
     st.header("View Patient History")
     patient_id = st.text_input("Patient ID")
     if st.button("Fetch History"):
@@ -736,17 +865,169 @@ elif menu == "Analytics":
 
 elif menu == "Doctor Workload":
     st.header("View Doctor Workload")
-    doctor_id = st.text_input("Doctor ID")
-    if st.button("Search"):
-        params = {
-            "doctor_id": doctor_id
-        }
-        response = requests.get(f"{BASE_URL}/doctors/workload", params=params)
-        if response.status_code == 200:
-            df = pd.DataFrame(response.json()["data"])
-            st.dataframe(df, use_container_width=True)
-        else:
-            st.error(response.json())   
+    #Doctor Workload
+    response = requests.get(f"{BASE_URL}/doctors/workload")
+    if response.status_code != 200:
+        st.error(response.text)
+    else:
+        workload = response.json()
+        workload_df = pd.DataFrame(workload["data"])
+        st.dataframe(workload_df, use_container_width=True)
+        doctor_fig = px.bar(
+        workload_df,
+        x="doctor_name",
+        y="total_appointments",
+        color="total_appointments",
+        title="Appointments per Doctor"            )
+        st.plotly_chart(doctor_fig, use_container_width=True) 
 
-            
-#
+elif menu == "Appointments Calendar":
+
+    st.header("Appointments Calendar")
+    # FETCH APPOINTMENTS
+    response = requests.get(
+        f"{BASE_URL}/appointments/details"
+    )
+    if response.status_code != 200:
+
+        st.error(response.text)
+
+    else:
+
+        data = response.json()
+
+        appointments = data.get("data", [])
+
+        if not appointments:
+
+            st.warning("No appointments available")
+
+        else:
+
+            # =========================
+            # CREATE CALENDAR EVENTS
+            # =========================
+
+            events = []
+
+            for row in appointments:
+
+                events.append({
+                    "title": (
+                        f"{row['patient_name']} - "
+                        f"{row['reason_for_visit']}"
+                    ),
+
+                    "start": str(
+                        row["appointment_date"]
+                    ),
+
+                    "id": row["appointment_id"]
+                })
+
+            # SHOW CALENDAR
+            calendar_data = calendar(
+                events=events,
+                options={
+                    "initialView": "dayGridMonth",
+                    "height": 700,
+                    "headerToolbar": {
+                        "left": "prev,next today",
+                        "center": "title",
+                        "right": (
+                            "dayGridYear,"
+                            "dayGridMonth,"
+                            "timeGridWeek,"
+                            "timeGridDay"
+                        )
+                    }
+                },
+
+                key="appointments-calendar"
+            )
+            # EVENT CLICK DETAILS
+            if (
+                calendar_data
+                and calendar_data.get("eventClick")
+            ):
+
+                selected_id = (
+                    calendar_data["eventClick"]
+                    ["event"]["id"]
+                )
+
+                detail_response = requests.get(
+                    f"{BASE_URL}/appointments/details",
+                    params={
+                        "appointment_id": selected_id
+                    }
+                )
+
+                if detail_response.status_code == 200:
+
+                    detail_data = (
+                        detail_response.json()
+                    )
+
+                    details = detail_data.get(
+                        "data",
+                        {}
+                    )
+
+                    st.divider()
+
+                    st.subheader(
+                        "Appointment Details"
+                    )
+
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+
+                        st.info(
+                            f"Patient: "
+                            f"{details.get('patient_name', 'N/A')}"
+                        )
+
+                        st.info(
+                            f"Doctor: "
+                            f"{details.get('doctor_name', 'N/A')}"
+                        )
+
+                        st.info(
+                            f"Appointment ID: "
+                            f"{details.get('appointment_id', 'N/A')}"
+                        )
+
+                        st.info(
+                            f"Visit Reason: "
+                            f"{details.get('reason_for_visit', 'N/A')}"
+                        )
+
+                    with col2:
+
+                        st.success(
+                            f"Treatment: "
+                            f"{details.get('treatment_type', 'N/A')}"
+                        )
+
+                        st.success(
+                            f"Billing Amount: "
+                            f"{details.get('amount', 'N/A')}"
+                        )
+
+                        st.success(
+                            f"Payment Status: "
+                            f"{details.get('payment_status', 'N/A')}"
+                        )
+
+                        st.success(
+                            f"Appointment Date: "
+                            f"{details.get('appointment_date', 'N/A')}"
+                        )
+
+                else:
+
+                    st.error(
+                        "Could not fetch appointment details"
+                    )   

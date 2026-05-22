@@ -3,10 +3,11 @@ from database import get_connection
 from pydantic import BaseModel, EmailStr, field_validator
 from psycopg2.extras import RealDictCursor
 from datetime import date
-from schemas import Patient, Appointment, Treatment, Billing
+from schemas import Patient, Appointment, Treatment, Billing, ChatRequest
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi import Body
+
 
 app = FastAPI(title="Hospital Management API")
 
@@ -277,8 +278,8 @@ def search_doctor(
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
             print(query)
-        cur.execute(query, tuple(params))
-        rows = cur.fetchall()
+            cur.execute(query, tuple(params))
+            rows = cur.fetchall()
         if not rows:
             raise HTTPException(status_code=404, detail="Doctor not found")
         return {"count": len(rows), "data": rows}
@@ -486,6 +487,108 @@ def get_appointments():
     return {"data": rows}
     cur.close()
     conn.close()
+
+@app.get("/appointments/details")
+def appointment_details(
+    appointment_id: str = None
+):
+
+    conn = get_connection()
+
+    cur = conn.cursor(
+        cursor_factory=RealDictCursor
+    )
+
+    try:
+
+        # =========================
+        # SINGLE APPOINTMENT
+        # =========================
+
+        if appointment_id:
+
+            query = """
+            SELECT
+                a.appointment_id,
+
+                a.appointment_date,
+
+                a.reason_for_visit,
+
+                p.first_name || ' ' || p.last_name
+                    AS patient_name,
+
+                d.first_name || ' ' || d.last_name
+                    AS doctor_name,
+
+                t.treatment_type,
+
+                b.amount,
+
+                b.payment_status
+
+            FROM appointments a
+
+            LEFT JOIN patients p
+                ON a.patient_id = p.patient_id
+
+            LEFT JOIN doctors d
+                ON a.doctor_id = d.doctor_id
+
+            LEFT JOIN treatments t
+                ON a.appointment_id = t.appointment_id
+
+            LEFT JOIN billing b
+                ON t.treatment_id = b.treatment_id
+
+            WHERE a.appointment_id = %s
+            """
+
+            cur.execute(
+                query,
+                (appointment_id,)
+            )
+
+            row = cur.fetchone()
+
+            return {
+                "data": row
+            }
+
+        # =========================
+        # ALL APPOINTMENTS
+        # =========================
+
+        query = """
+        SELECT
+            a.appointment_id,
+
+            a.appointment_date,
+
+            a.reason_for_visit,
+
+            p.first_name || ' ' || p.last_name
+                AS patient_name
+
+        FROM appointments a
+
+        LEFT JOIN patients p
+            ON a.patient_id = p.patient_id
+        """
+
+        cur.execute(query)
+
+        rows = cur.fetchall()
+
+        return {
+            "data": rows
+        }
+
+    finally:
+
+        cur.close()
+
+        conn.close()
 
 #update apt
 @app.put("/appointments")
@@ -1060,32 +1163,320 @@ def doctor_workload():
             cur.close()
             conn.close()
 
+# @app.post("/chatbot")
+# def chatbot(request: ChatRequest):
+#     query = request.query.lower()
+#     conn = get_connection()
+#     cur = conn.cursor(cursor_factory=RealDictCursor)
+#     try:
+#         if "total patients" in query:
+#             cur.execute("SELECT COUNT(*) FROM patients;")
+#             count = cur.fetchone()[0]
+#             result = cur.fetchone()
+#             return {
+#                 "response": f"Total patients: {result['total_patients']}"
+#             }
+#         elif "pending bills" in query:
+#             cur.execute("SELECT COUNT(*) AS total FROM billing WHERE payment_status = 'Pending';")
+#             count = cur.fetchone()
+#             return {
+#                 "response": f"Total pending bills: {count['total']}"
+#             }
+#         elif "busiest doctor" in query:
+#             cur.execute("""
+#                 SELECT
+#                     d.first_name,
+#                     COUNT(a.appointment_id)
+#                     AS total
+#                 FROM doctors d
+#                 JOIN appointments a
+#                     ON d.doctor_id = a.doctor_id
+#                 GROUP BY d.first_name
+#                 ORDER BY total DESC
+#                 LIMIT 1
+#             """)
+#             result = cur.fetchone()
+#             return {
+#                 "response":
+#                 f"Busiest doctor is "
+#                 f"{result['first_name']} "
+#                 f"with {result['total']} appointments"
+#             }
+#         else:
+#             cur.execute("""
+#                 SELECT *
+#                 FROM hospital_catalog
+#                 WHERE LOWER(title)
+#                 LIKE LOWER(%s)
+#             """, (f"%{query}%",))
+#             result = cur.fetchone()
+#             if result:
+#                 return {
+#                     "response":
+#                     result["content"]
+#                 }
+#             return {
+#                 "response":
+#                 "Sorry, I could not understand the question."
+#             }
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=500,
+#             detail=str(e)
+#         )
+#     finally:
+#         cur.close()
+#         conn.close()
+
 @app.post("/chatbot")
 def chatbot(request: ChatRequest):
-    query = request.query.lower()
-    conn = get_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    try:
-        if "total patients" in query:
-            cur.execute("SELECT COUNT(*) FROM patients;")
-            count = cur.fetchone()[0]
-            result = cur.fetchone()
-            return {
-                "response": f"Total patients: {result['total_patients']}"
-            }
-        elif "pending bills" in query:
-            cur.execute("SELECT COUNT(*) AS total FROM billing WHERE payment_status = 'Pending';")
-            count = cur.fetchone()
-            return {
-                "response": f"Total pending bills: {count['total']}"
-            }
-        elif "busiest doctor" in query:
-            cur.execute("""
-                SELECT d.first_name,
-                COUNT(a.appointment_id)
-                AS total
 
-            return
+    query = request.query.lower()
+
+    conn = get_connection()
+
+    cur = conn.cursor(
+        cursor_factory=RealDictCursor
+    )
+
+    try:
+
+        # =========================
+        # TOTAL PATIENTS
+        # =========================
+
+        if (
+            "total patients" in query
+            or "how many patients" in query
+        ):
+
+            cur.execute("""
+                SELECT COUNT(*) AS total
+                FROM patients
+            """)
+
+            result = cur.fetchone()
+
+            return {
+                "response":
+                f"Total patients registered: {result['total']}"
+            }
+
+        # =========================
+        # TOTAL DOCTORS
+        # =========================
+
+        elif (
+            "total doctors" in query
+            or "how many doctors" in query
+        ):
+
+            cur.execute("""
+                SELECT COUNT(*) AS total
+                FROM doctors
+            """)
+
+            result = cur.fetchone()
+
+            return {
+                "response":
+                f"Total doctors available: {result['total']}"
+            }
+
+        # =========================
+        # TOTAL APPOINTMENTS
+        # =========================
+
+        elif (
+            "appointments" in query
+            or "total appointments" in query
+        ):
+
+            cur.execute("""
+                SELECT COUNT(*) AS total
+                FROM appointments
+            """)
+
+            result = cur.fetchone()
+
+            return {
+                "response":
+                f"Total appointments: {result['total']}"
+            }
+
+        # =========================
+        # TOTAL REVENUE
+        # =========================
+
+        elif (
+            "revenue" in query
+            or "total billing" in query
+            or "earnings" in query
+        ):
+
+            cur.execute("""
+                SELECT COALESCE(
+                    SUM(amount),
+                    0
+                ) AS revenue
+                FROM billing
+            """)
+
+            result = cur.fetchone()
+
+            return {
+                "response":
+                f"Total hospital revenue: ₹{result['revenue']}"
+            }
+
+        # =========================
+        # PENDING PAYMENTS
+        # =========================
+
+        elif (
+            "pending payments" in query
+            or "pending bills" in query
+        ):
+
+            cur.execute("""
+                SELECT COUNT(*) AS total
+                FROM billing
+                WHERE LOWER(payment_status)
+                = 'pending'
+            """)
+
+            result = cur.fetchone()
+
+            return {
+                "response":
+                f"Pending bills count: {result['total']}"
+            }
+
+        # =========================
+        # MOST COMMON TREATMENT
+        # =========================
+
+        elif (
+            "common treatment" in query
+            or "most common treatment" in query
+        ):
+
+            cur.execute("""
+                SELECT
+                    treatment_type,
+                    COUNT(*) AS total
+                FROM treatments
+                GROUP BY treatment_type
+                ORDER BY total DESC
+                LIMIT 1
+            """)
+
+            result = cur.fetchone()
+
+            if result:
+
+                return {
+                    "response":
+                    f"Most common treatment is "
+                    f"{result['treatment_type']} "
+                    f"with {result['total']} records"
+                }
+
+            return {
+                "response":
+                "No treatment data found"
+            }
+
+        # =========================
+        # DOCTOR WORKLOAD
+        # =========================
+
+        elif (
+            "busy doctor" in query
+            or "doctor workload" in query
+        ):
+
+            cur.execute("""
+                SELECT
+                    d.first_name,
+                    COUNT(a.appointment_id)
+                    AS total
+                FROM doctors d
+
+                LEFT JOIN appointments a
+                ON d.doctor_id = a.doctor_id
+
+                GROUP BY d.first_name
+
+                ORDER BY total DESC
+
+                LIMIT 1
+            """)
+
+            result = cur.fetchone()
+
+            if result:
+
+                return {
+                    "response":
+                    f"Dr. {result['first_name']} "
+                    f"has the highest workload "
+                    f"with {result['total']} appointments"
+                }
+
+            return {
+                "response":
+                "No workload data found"
+            }
+
+        # =========================
+        # HELP COMMAND
+        # =========================
+
+        elif "help" in query:
+
+            return {
+                "response":
+                """
+                You can ask:
+
+                - Total patients
+                - Total doctors
+                - Revenue
+                - Pending bills
+                - Appointments
+                - Common treatments
+                - Busy doctor
+                """
+            }
+
+        # =========================
+        # DEFAULT RESPONSE
+        # =========================
+
+        else:
+
+            return {
+                "response":
+                (
+                    "Sorry, I could not understand. "
+                    "Type 'help' to see "
+                    "available commands."
+                )
+            }
+
+    except Exception as e:
+
+        return {
+            "response":
+            f"Chatbot error: {str(e)}"
+        }
+
+    finally:
+
+        cur.close()
+
+        conn.close()
 
 
 #uvicorn main:app --reload

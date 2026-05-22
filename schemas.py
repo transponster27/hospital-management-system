@@ -63,17 +63,17 @@ class Appointment(BaseModel):
     reason_for_visit: str
     status: str = "scheduled"
 
-    @field_validator(
-        "patient_id",
-        "doctor_id",
-        "reason_for_visit"
-    )
-    @classmethod
-    def validate_required(cls, v):
+    # @field_validator(
+    #     "patient_id",
+    #     "doctor_id",
+    #     "reason_for_visit"
+    # )
+    # @classmethod
+    # def validate_required(cls, v):
 
-        if not v.strip():
-            raise ValueError("Field cannot be empty")
-        return v
+    #     if not v.strip():
+    #         raise ValueError("Field cannot be empty")
+    #     return v
 
     @field_validator("appointment_date")
     @classmethod
@@ -106,16 +106,16 @@ class Treatment(BaseModel):
     treatment_date: date
     payment_method: Optional[str] = "Cash"
 
-    @field_validator(
-        "appointment_id",
-        "treatment_type",
-        "description"
-    )
-    @classmethod
-    def validate(cls,v):
-        if not v.strip():
-            raise ValueError("Field cannot be empty")
-        return v
+    # @field_validator(
+    #     "appointment_id",
+    #     "treatment_type",
+    #     "description"
+    # )
+    # @classmethod
+    # def validate(cls,v):
+    #     if not v.strip():
+    #         raise ValueError("Field cannot be empty")
+    #     return v
 
     @field_validator("payment_method")
     @classmethod
@@ -175,4 +175,3 @@ class Billing(BaseModel):
 
 class ChatRequest(BaseModel):
     query: str
-    context: Optional[str] = None
