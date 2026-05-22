@@ -29,11 +29,11 @@ st.markdown("""
     padding-right: 2rem;
 }
 .heading {
-    font-size: 42px;
+    font-size: 40px;
     font-weight: 700;
     color: #F8FAFC;
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: -30px;
 }
 .sub-header {
     font-size: 24px;
@@ -340,21 +340,53 @@ if menu == "Home":
         )
         col1,col2 = st.columns(2)
         with col1:
-            # Treemap Visual
-            treatment_cost_fig = px.treemap(
-                catalog_df,
-                path=["treatment_type", "description"],
-                values="cost",
-                color="cost",
-                hover_data=["cost"],
-                title="Treatment Types, Descriptions & Cost Distribution"
+            st.markdown("<div class='small-title'>Patients per Treatment</div>", unsafe_allow_html=True)
+            # Count treatments by description
+            treatment_desc_df = (
+                treatments_df.groupby(
+                    ["treatment_type", "description"]
+                )
+                .size()
+                .reset_index(name="patient_count")
+            )
+
+            # Treemap visualization
+            treemap_fig = px.treemap(
+                treatment_desc_df,
+                path=[
+                    "treatment_type",
+                    "description"
+                ],
+                values="patient_count",
+                color="patient_count",
+            )
+
+            treemap_fig.update_layout(
+                margin=dict(t=40, l=10, r=10, b=10),
+                height=400,
             )
 
             st.plotly_chart(
-                treatment_cost_fig,
+                treemap_fig,
                 use_container_width=True
             )
+            # Treemap Visual
+            # treatment_cost_fig = px.treemap(
+            #     catalog_df,
+            #     path=["treatment_type", "description"],
+            #     values="cost",
+            #     color="cost",
+            #     hover_data=["cost"],
+            #     title="Treatment Types, Descriptions & Cost Distribution"
+            # )
+
+            # st.plotly_chart(
+            #     treatment_cost_fig,
+            #     use_container_width=True
+            # )
+            
         with col2:
+            st.markdown("<div class='small-title'>Cost per Treatment</div>", unsafe_allow_html=True)
             # Bar Chart
             
             catalog_df["label"] = (            catalog_df["treatment_type"]
@@ -366,10 +398,9 @@ if menu == "Home":
                 y="label",
                 orientation="h",
                 color="cost",
-                title="Treatment Cost Breakdown"
             )
             cost_fig.update_layout(
-                height=600,
+                height=400,
                 yaxis_title="Treatment",
                 xaxis_title="Cost"
             )
@@ -442,6 +473,7 @@ elif menu == "Patients":
                 st.error("Required Contact number must be a numeric")
             elif len(contact_number) != 10:
                 st.error("Contact number must be 10 digits")
+
             params = {
                 "first_name": first_name,
                 "last_name": last_name,

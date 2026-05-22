@@ -48,12 +48,12 @@ class Patient(BaseModel):
     #         raise ValueError("Contact number must be at least 10 digits")
     #     return v
 
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, v):
-        if v and not EmailStr():
-            raise ValueError("Invalid email address")
-        return v
+    # @field_validator("email")
+    # @classmethod
+    # def validate_email(cls, v):
+    #     if v and not EmailStr():
+    #         raise ValueError("Invalid email address")
+    #     return v
 
 class Appointment(BaseModel):
     patient_id: str

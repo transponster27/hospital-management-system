@@ -89,6 +89,18 @@ def insert_data():
 
         print("Data import completed successfully.")
 
+        # HOSPITAL CATALOG
+        hospital_catalog = clean_df(pd.read_csv(DATA_PATH + "hospital_catalog.csv"))
+        execute_batch(cur, """
+            INSERT INTO hospital_catalog (
+                treatment_type, description, cost
+            )
+            VALUES (%s,%s,%s)
+        """, hospital_catalog.values.tolist())
+
+        conn.commit()
+        print("Hospital catalog import completed successfully.")
+
     except Exception as e:
         conn.rollback()
         print("Error:", e)

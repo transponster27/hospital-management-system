@@ -7,6 +7,8 @@ from schemas import Patient, Appointment, Treatment, Billing, ChatRequest
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi import Body
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
 
 
 app = FastAPI(title="Hospital Management API")
@@ -1477,6 +1479,7 @@ def chatbot(request: ChatRequest):
         cur.close()
 
         conn.close()
+
 
 
 #uvicorn main:app --reload
